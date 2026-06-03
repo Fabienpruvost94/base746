@@ -1,102 +1,450 @@
 #include "lvgl.h"
+#include <Arduino.h>
+#include <math.h>
+#include "lvglDrivers.h"
 
-static void event_handler(lv_event_t * e)
+#define AS5047P_CS 9
+#define AS5047P_MOSI 7
+#define AS5047P_MISO 8
+#define AS5047P_SCK 6
+#define AS5047P_NOP 0x0000
+#define AS5047P_ANGLECOM 0x3FFE
+
+enum EtatJeu { JeuEnAttente, JeuAttenteMouvement, JeuEnRotation, JeuEvaluation };
+
+static lv_obj_t *label_angle;
+static lv_obj_t *roulette;
+static lv_obj_t *bouton_rouge;
+static lv_obj_t *bouton_noir;
+static lv_obj_t *aiguille;
+static lv_display_t *ecran;
+static lv_point_precise_t points_aiguille[2];
+static lv_obj_t *cont_boutons;
+static lv_obj_t *bouton_depart;
+static lv_obj_t *cont_cercle;
+static lv_obj_t *label_statut;
+
+static int couleur_selectionnee = 0;
+static EtatJeu etat_actuel = JeuEnAttente;
+static float angle_initial = 0.0f;
+static float dernier_angle = 0.0f;
+static int compteur_stabilite = 0;
+static bool depart_declenche = false;
+
+static int numeros_selectionnes[5] = {0, 0, 0, 0, 0};
+static int nb_numeros_selectionnes = 0;
+
+static lv_point_precise_t points_segments[36][2];
+static lv_obj_t *segments[36];
+
+uint16_t transfert_SPI_logiciel(uint16_t valeur)
 {
-    lv_event_code_t code = lv_event_get_code(e);
- 
-    if(code == LV_EVENT_CLICKED) {
-        LV_LOG_USER("Clicked");
+    uint16_t sortie = 0;
+    for (int i = 15; i >= 0; i--)
+    {
+        digitalWrite(AS5047P_MOSI, (valeur & (1 << i)) ? HIGH : LOW);
+        delayMicroseconds(5);
+        digitalWrite(AS5047P_SCK, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(AS5047P_SCK, LOW);
+        delayMicroseconds(5);
+        if (digitalRead(AS5047P_MISO))
+            sortie |= (1 << i);
     }
-    else if(code == LV_EVENT_VALUE_CHANGED) {
-        LV_LOG_USER("Toggled");
+    return sortie;
+}
 
+uint16_t lire_AS5047P()
+{
+    uint16_t commande = 0x4000 | AS5047P_ANGLECOM;
+    digitalWrite(AS5047P_CS, LOW);
+    delayMicroseconds(5);
+    transfert_SPI_logiciel(commande);
+    digitalWrite(AS5047P_CS, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(AS5047P_CS, LOW);
+    delayMicroseconds(5);
+    uint16_t reponse = transfert_SPI_logiciel(AS5047P_NOP);
+    digitalWrite(AS5047P_CS, HIGH);
+    return (reponse & 0x3FF0);
+}
 
-
-
-        delay(5);
+static void cb_bouton_couleur(lv_event_t *e)
+{
+    lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
+    if (!btn) return;
+    
+    bool coche = lv_obj_has_state(btn, LV_STATE_CHECKED);
+    
+    if (btn == bouton_rouge) {
+        if (coche) {
+            couleur_selectionnee = 1;
+            lv_obj_clear_state(bouton_noir, LV_STATE_CHECKED);
+        } else {
+            couleur_selectionnee = 0;
+        }
+    } else if (btn == bouton_noir) {
+        if (coche) {
+            couleur_selectionnee = 2;
+            lv_obj_clear_state(bouton_rouge, LV_STATE_CHECKED);
+        } else {
+            couleur_selectionnee = 0;
+        }
     }
 }
-//
-void testLvgl()
+
+static void cb_bouton_numero(lv_event_t *e)
 {
-  // Initialisations générales
-  lv_obj_t * label;
+    lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
+    if (!btn) return;
 
-  lv_obj_t * btn1 = lv_button_create(lv_screen_active());
-  lv_obj_add_event_cb(btn1, event_handler, LV_EVENT_ALL, NULL);
-  lv_obj_align(btn1, LV_ALIGN_CENTER, 0, -40);
-  lv_obj_remove_flag(btn1, LV_OBJ_FLAG_PRESS_LOCK);
+    int num_courant = (int)(uintptr_t)lv_obj_get_user_data(btn);
+    bool est_coche = lv_obj_has_state(btn, LV_STATE_CHECKED);
 
-  label = lv_label_create(btn1);
-  lv_label_set_text(label, "Button");
-  lv_obj_center(label);
+    if (est_coche) {
+        if (nb_numeros_selectionnes >= 5) {
+            lv_obj_clear_state(btn, LV_STATE_CHECKED); 
+            lv_label_set_text(label_statut, "Maximum 5 numeros !");
+            lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
+            return;
+        }
+        
+        for (int i = 0; i < 5; i++) {
+            if (numeros_selectionnes[i] == 0) {
+                numeros_selectionnes[i] = num_courant;
+                nb_numeros_selectionnes++;
+                break;
+            }
+        }
+    } else {
+        for (int i = 0; i < 5; i++) {
+            if (numeros_selectionnes[i] == num_courant) {
+                numeros_selectionnes[i] = 0;
+                nb_numeros_selectionnes--;
+                break;
+            }
+        }
+    }
+}
 
-  lv_obj_t * btn2 = lv_button_create(lv_screen_active());
-  lv_obj_add_event_cb(btn2, event_handler, LV_EVENT_ALL, NULL);
-  lv_obj_align(btn2, LV_ALIGN_CENTER, 0, 40);
-  lv_obj_add_flag(btn2, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_set_height(btn2, LV_SIZE_CONTENT);
+static void cb_bouton_depart(lv_event_t *e)
+{
+    lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
+    if (!btn) return;
 
-  label = lv_label_create(btn2);
-  lv_label_set_text(label, "Toggle");
-  lv_obj_center(label);
+    depart_declenche = lv_obj_has_state(btn, LV_STATE_CHECKED);
+}
+
+void initialiser_interface_LVGL()
+{
+    lv_obj_set_style_bg_color(lv_screen_active(), lv_color_hex(0x064000), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
+
+    label_statut = lv_label_create(lv_screen_active());
+    lv_label_set_text(label_statut, "Pret");
+    lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(label_statut, LV_ALIGN_TOP_MID, 0, 10);
+
+    roulette = lv_arc_create(lv_screen_active());
+    lv_arc_set_bg_angles(roulette, 0, 360);
+    lv_arc_set_angles(roulette, 0, 360);
+    lv_arc_set_range(roulette, 0, 360);
+    lv_arc_set_value(roulette, 0);
+    lv_obj_set_size(roulette, 180, 180);
+    lv_obj_align(roulette, LV_ALIGN_CENTER, -130, 0);
+    lv_obj_remove_style(roulette, NULL, LV_PART_KNOB);
+    lv_obj_remove_style(roulette, NULL, LV_PART_INDICATOR); 
+
+    cont_cercle = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(cont_cercle, 190, 190);
+    lv_obj_align(cont_cercle, LV_ALIGN_CENTER, -130, 0);
+    lv_obj_set_style_radius(cont_cercle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(cont_cercle, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(cont_cercle, 0, 0);
+    lv_obj_set_style_pad_all(cont_cercle, 0, 0);
+    lv_obj_clear_flag(cont_cercle, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+
+    float centre_x = 95.0f, centre_y = 95.0f;
+
+    for (int i = 0; i < 36; i++)
+    {
+        int numero = i + 1;
+
+        float angle_milieu_deg   = i * 10.0f + 5.0f;
+        float angle_milieu_rad   = angle_milieu_deg * (M_PI / 180.0f);
+        float angle_depart_rad = (i * 10.0f) * (M_PI / 180.0f);
+
+        float rayon_x = centre_x + 83.0f * cosf(angle_milieu_rad);
+        float rayon_y = centre_y + 83.0f * sinf(angle_milieu_rad);
+
+        lv_obj_t *case_rectangle = lv_obj_create(cont_cercle);
+        lv_obj_set_size(case_rectangle, 14, 14); 
+        lv_obj_set_style_border_width(case_rectangle, 0, 0);
+        lv_obj_set_style_pad_all(case_rectangle, 0, 0);
+        lv_obj_set_style_radius(case_rectangle, 0, 0);
+        lv_obj_set_pos(case_rectangle, (lv_coord_t)(rayon_x - 7), (lv_coord_t)(rayon_y - 7));
+
+        lv_obj_set_style_transform_pivot_x(case_rectangle, 7, 0);
+        lv_obj_set_style_transform_pivot_y(case_rectangle, 7, 0);
+        int32_t angle_lvgl = (int32_t)((angle_milieu_deg + 90.0f) * 10.0f);
+        lv_obj_set_style_transform_rotation(case_rectangle, angle_lvgl, 0);
+
+        if (numero % 2 == 0) {
+            lv_obj_set_style_bg_color(case_rectangle, lv_color_hex(0xFF0000), 0);
+        } else {
+            lv_obj_set_style_bg_color(case_rectangle, lv_color_hex(0x111111), 0);
+        }
+
+        lv_obj_t *lbl = lv_label_create(case_rectangle);
+        lv_label_set_text_fmt(lbl, "%d", numero);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_center(lbl);
+
+        points_segments[i][0].x = (lv_value_precise_t)(centre_x + 75.0f * cosf(angle_depart_rad));
+        points_segments[i][0].y = (lv_value_precise_t)(centre_y + 75.0f * sinf(angle_depart_rad));
+        points_segments[i][1].x = (lv_value_precise_t)(centre_x + 91.0f * cosf(angle_depart_rad));
+        points_segments[i][1].y = (lv_value_precise_t)(centre_y + 91.0f * sinf(angle_depart_rad));
+
+        segments[i] = lv_line_create(cont_cercle);
+        lv_obj_set_style_line_color(segments[i], lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+        lv_obj_set_style_line_width(segments[i], 1, LV_PART_MAIN);
+        lv_obj_set_size(segments[i], 190, 190);
+        lv_obj_align(segments[i], LV_ALIGN_TOP_LEFT, 0, 0);
+        lv_line_set_points_mutable(segments[i], points_segments[i], 2);
+    }
+
+    aiguille = lv_line_create(lv_screen_active());
+    lv_obj_set_style_line_color(aiguille, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_line_width(aiguille, 4, LV_PART_MAIN);
+    lv_obj_set_style_line_rounded(aiguille, false, LV_PART_MAIN);
+    lv_obj_set_size(aiguille, 180, 180);
+    lv_obj_align(aiguille, LV_ALIGN_CENTER, -130, 0);
+
+    points_aiguille[0].x = (lv_value_precise_t)90;
+    points_aiguille[0].y = (lv_value_precise_t)90;
+    points_aiguille[1].x = (lv_value_precise_t)90;
+    points_aiguille[1].y = (lv_value_precise_t)20;
+    lv_line_set_points_mutable(aiguille, points_aiguille, 2);
+
+    cont_boutons = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(cont_boutons, 180, 150);
+    lv_obj_align(cont_boutons, LV_ALIGN_CENTER, 150, 0);
+    lv_obj_set_style_bg_color(cont_boutons, lv_color_hex(0x064000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_flex_flow(cont_boutons, LV_FLEX_FLOW_ROW_WRAP);
+
+    for (uint32_t i = 1; i < 37; i++)
+    {
+        lv_obj_t *btn = lv_button_create(cont_boutons);
+        lv_obj_set_size(btn, 40, 50);
+        lv_obj_add_flag(btn, LV_OBJ_FLAG_CHECKABLE);
+        lv_obj_set_user_data(btn, (void*)(uintptr_t)i);
+        
+        lv_obj_set_style_bg_color(btn, lv_color_hex(0x2196F3), LV_PART_MAIN | LV_STATE_DEFAULT);
+        
+        if (i % 2 == 0) {
+            lv_obj_set_style_bg_color(btn, lv_color_hex(0xFF0000), LV_PART_MAIN | LV_STATE_CHECKED);
+        } else {
+            lv_obj_set_style_bg_color(btn, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_CHECKED);
+        }
+        
+        lv_obj_remove_style(btn, NULL, LV_STATE_PRESSED);
+
+        lv_obj_t *label = lv_label_create(btn);
+        lv_label_set_text_fmt(label, "%" LV_PRIu32, i);
+        lv_obj_center(label);
+        lv_obj_add_event_cb(btn, cb_bouton_numero, LV_EVENT_CLICKED, NULL);
+    }
+
+    bouton_rouge = lv_button_create(lv_screen_active());
+    lv_obj_set_size(bouton_rouge, 50, 80);
+    lv_obj_add_flag(bouton_rouge, LV_OBJ_FLAG_CHECKABLE);
+    lv_obj_align(bouton_rouge, LV_ALIGN_CENTER, 30, 50);
+    lv_obj_set_style_bg_color(bouton_rouge, lv_color_hex(0x006400), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bouton_rouge, lv_color_hex(0xFF0000), LV_PART_MAIN | LV_STATE_CHECKED);
+    lv_obj_remove_style(bouton_rouge, NULL, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(bouton_rouge, cb_bouton_couleur, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *labelrouge = lv_label_create(bouton_rouge);
+    lv_label_set_text(labelrouge, "Rouge");
+    lv_obj_center(labelrouge);
+
+    bouton_noir = lv_button_create(lv_screen_active());
+    lv_obj_set_size(bouton_noir, 50, 80);
+    lv_obj_add_flag(bouton_noir, LV_OBJ_FLAG_CHECKABLE);
+    lv_obj_align(bouton_noir, LV_ALIGN_CENTER, 30, -50);
+    lv_obj_set_style_bg_color(bouton_noir, lv_color_hex(0x006400), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bouton_noir, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_CHECKED);
+    lv_obj_remove_style(bouton_noir, NULL, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(bouton_noir, cb_bouton_couleur, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *labelnoir = lv_label_create(bouton_noir);
+    lv_label_set_text(labelnoir, "Noir");
+    lv_obj_center(labelnoir);
+
+    bouton_depart = lv_button_create(lv_screen_active());
+    lv_obj_set_size(bouton_depart, 150, 50);
+    lv_obj_add_flag(bouton_depart, LV_OBJ_FLAG_CHECKABLE);
+    lv_obj_align(bouton_depart, LV_ALIGN_CENTER, 150, -105);
+    lv_obj_set_style_bg_color(bouton_depart, lv_color_hex(0x006400), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(bouton_depart, lv_color_hex(0x000088), LV_PART_MAIN | LV_STATE_CHECKED);
+    lv_obj_remove_style(bouton_depart, NULL, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(bouton_depart, cb_bouton_depart, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *labelStart = lv_label_create(bouton_depart);
+    lv_label_set_text(labelStart, "START");
+    lv_obj_center(labelStart);
 }
 
 #ifdef ARDUINO
 
-#include "lvglDrivers.h"
-
-// à décommenter pour tester la démo
-// #include "demos/lv_demos.h"
-
 void mySetup()
 {
-  // à décommenter pour tester la démo
-  // lv_demo_widgets();
-
-  // Initialisations générales
-  testLvgl();
+    Serial.begin(115200);
+    delay(2500);
+    pinMode(AS5047P_CS, OUTPUT);
+    pinMode(AS5047P_SCK, OUTPUT);
+    pinMode(AS5047P_MOSI, OUTPUT);
+    pinMode(AS5047P_MISO, INPUT);
+    digitalWrite(AS5047P_CS, HIGH);
+    digitalWrite(AS5047P_SCK, LOW);
+    lv_init();
+    initialiser_interface_LVGL();
 }
 
 void loop()
 {
-  // Inactif (pour mise en veille du processeur)
 }
 
 void myTask(void *pvParameters)
 {
-  // Init
-  TickType_t xLastWakeTime;
-  // Lecture du nombre de ticks quand la tâche débute
-  xLastWakeTime = xTaskGetTickCount();
-  while (1)
-  {
-    // Loop
+    TickType_t temps_dernier_reveil;
+    temps_dernier_reveil = xTaskGetTickCount();
 
-    // Endort la tâche pendant le temps restant par rapport au réveil,
-    // ici 200ms, donc la tâche s'effectue toutes les 200ms
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(200)); // toutes les 200 ms
-  }
+    while (1)
+    {
+        uint16_t valeur_angle = lire_AS5047P();
+        float angle_degres = (valeur_angle * 360.0f) / 16384.0f;
+
+        int angle_entier = (int)angle_degres;
+        
+        float angle_radians = angle_degres * (M_PI / 180.0f);
+        lv_value_precise_t nouv_x = (lv_value_precise_t)(90.0f + 70.0f * cosf(angle_radians));
+        lv_value_precise_t nouv_y = (lv_value_precise_t)(90.0f + 70.0f * sinf(angle_radians));
+
+        lvglLock();
+
+        if (roulette)
+            lv_arc_set_value(roulette, angle_entier);
+
+        if (aiguille)
+        {
+            points_aiguille[0].x = (lv_value_precise_t)90;
+            points_aiguille[0].y = (lv_value_precise_t)90;
+            points_aiguille[1].x = nouv_x;
+            points_aiguille[1].y = nouv_y;
+            lv_line_set_points_mutable(aiguille, points_aiguille, 2);
+        }
+
+        switch (etat_actuel)
+        {
+            case JeuEnAttente:
+                if (depart_declenche) {
+                    angle_initial = angle_degres;
+                    dernier_angle = angle_degres;
+                    compteur_stabilite = 0;
+                    etat_actuel = JeuAttenteMouvement;
+                    lv_label_set_text(label_statut, "Lancez la roulette !");
+                    lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFFFFFF), 0);
+                }
+                break;
+
+            case JeuAttenteMouvement:
+                if (!depart_declenche) {
+                    etat_actuel = JeuEnAttente;
+                    lv_label_set_text(label_statut, "Pret");
+                    break;
+                }
+                {
+                    float difference = fabs(angle_degres - angle_initial);
+                    if (difference > 180.0f) difference = 360.0f - difference;
+                    if (difference >= 10.0f) {
+                        etat_actuel = JeuEnRotation;
+                        dernier_angle = angle_degres;
+                        compteur_stabilite = 0;
+                        lv_label_set_text(label_statut, "En mouvement...");
+                    }
+                }
+                break;
+
+            case JeuEnRotation:
+                {
+                    float diff_dernier = fabs(angle_degres - dernier_angle);
+                    if (diff_dernier > 180.0f) diff_dernier = 360.0f - diff_dernier;
+                    
+                    if (diff_dernier < 0.5f) {
+                        compteur_stabilite++;
+                    } else {
+                        compteur_stabilite = 0;
+                    }
+                    
+                    dernier_angle = angle_degres;
+                    
+                    if (compteur_stabilite >= 10) {
+                        etat_actuel = JeuEvaluation;
+                    }
+                }
+                break;
+
+            case JeuEvaluation:
+                {
+                    int secteur = (int)(angle_degres / 10.0f);
+                    if (secteur < 0) secteur = 0;
+                    if (secteur > 35) secteur = 35;
+                    int numero_gagnant = secteur + 1;
+                    int couleur_gagnante = (numero_gagnant % 2 == 0) ? 1 : 2;
+
+                    bool victoire = false;
+                    bool mise_placee = (nb_numeros_selectionnes > 0) || (couleur_selectionnee > 0);
+
+                    if (nb_numeros_selectionnes > 0) {
+                        for (int i = 0; i < 5; i++) {
+                            if (numeros_selectionnes[i] == numero_gagnant) {
+                                victoire = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante) {
+                        victoire = true;
+                    }
+                    if (!mise_placee) {
+                        victoire = false;
+                    }
+
+                    if (victoire) {
+                        lv_label_set_text_fmt(label_statut, "GAGNE ! (Numero %d)", numero_gagnant);
+                        lv_obj_set_style_text_color(label_statut, lv_color_hex(0x00FF00), 0);
+                    } else {
+                        lv_label_set_text_fmt(label_statut, "PERDU ! (Numero %d)", numero_gagnant);
+                        lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
+                    }
+
+                    lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+                    depart_declenche = false;
+                    etat_actuel = JeuEnAttente;
+                }
+                break;
+        }
+
+        lvglUnlock();
+
+        vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(50));
+    }
 }
 
 #else
 
-#include "lvgl.h"
-#include "app_hal.h"
-#include <cstdio>
-
 int main(void)
 {
-  printf("LVGL Simulator\n");
-  fflush(stdout);
-
-  lv_init();
-  hal_setup();
-
-  testLvgl();
-
-  hal_loop();
-  return 0;
+    return 0;
 }
 
 #endif
