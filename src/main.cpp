@@ -9,6 +9,11 @@ static void event_handler(lv_event_t * e)
     }
     else if(code == LV_EVENT_VALUE_CHANGED) {
         LV_LOG_USER("Toggled");
+
+
+
+
+        delay(5);
     }
 }
 //
