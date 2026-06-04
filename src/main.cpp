@@ -29,6 +29,7 @@ static lv_obj_t *cont_boutons;
 static lv_obj_t *bouton_depart;
 static lv_obj_t *cont_cercle;
 static lv_obj_t *label_statut;
+static lv_obj_t *label_solde;
 
 static int couleur_selectionnee = 0;
 static EtatJeu etat_actuel = JeuEnAttente;
@@ -36,6 +37,9 @@ static float angle_initial = 0.0f;
 static float dernier_angle = 0.0f;
 static int compteur_stabilite = 0;
 static bool depart_declenche = false;
+
+static int solde = 100; 
+const int COUT_MISE = 5;
 
 static int numeros_selectionnes[5] = {0, 0, 0, 0, 0};
 static int nb_numeros_selectionnes = 0;
@@ -170,6 +174,11 @@ void initialiser_interface_LVGL()
   lv_label_set_text(label_statut, "Pret");
   lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFFFFFF), 0);
   lv_obj_align(label_statut, LV_ALIGN_TOP_MID, -20, 15);
+
+  label_solde = lv_label_create(lv_screen_active());
+  lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
+  lv_obj_set_style_text_color(label_solde, lv_color_hex(0xFFFF00), 0); 
+  lv_obj_align(label_solde, LV_ALIGN_BOTTOM_RIGHT, -20, -15);
 
   roulette = lv_arc_create(lv_screen_active());
   lv_arc_set_bg_angles(roulette, 0, 360);
@@ -379,6 +388,34 @@ void myTask(void *pvParameters)
     case JeuEnAttente:
       if (depart_declenche)
       {
+        // 1. Calcul du nombre de paris actifs
+        int nb_mises = nb_numeros_selectionnes + (couleur_selectionnee > 0 ? 1 : 0);
+        
+        if (nb_mises == 0)
+        {
+          lv_label_set_text(label_statut, "Misez d'abord !");
+          lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
+          lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+          depart_declenche = false;
+          break;
+        }
+
+        // 2. Calcul du cout total (chaque pari coute 5)
+        int cout_total = nb_mises * COUT_MISE;
+
+        if (solde < cout_total)
+        {
+          lv_label_set_text(label_statut, "Solde insuffisant !");
+          lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
+          lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+          depart_declenche = false;
+          break;
+        }
+
+        // 3. Déduction du montant total
+        solde -= cout_total;
+        lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
+
         angle_initial = angle_degres;
         dernier_angle = angle_degres;
         compteur_stabilite = 0;
@@ -424,7 +461,7 @@ void myTask(void *pvParameters)
         compteur_stabilite = 0;
       }
 
-      dernier_angle = angle_degres;
+       dernier_angle = angle_degres;
 
       if (compteur_stabilite >= 10)
       {
@@ -443,40 +480,41 @@ void myTask(void *pvParameters)
       int numero_gagnant = secteur + 1;
       int couleur_gagnante = (numero_gagnant % 2 == 0) ? 1 : 2;
 
-      bool victoire = false;
-      bool mise_placee = (nb_numeros_selectionnes > 0) || (couleur_selectionnee > 0);
+      int gains = 0;
 
+      // Vérification des numéros (si un numéro correspond, il rapporte x2 de la mise)
       if (nb_numeros_selectionnes > 0)
       {
         for (int i = 0; i < 5; i++)
         {
           if (numeros_selectionnes[i] == numero_gagnant)
           {
-            victoire = true;
+            gains += (COUT_MISE * 2); 
             break;
           }
         }
       }
 
+      // Vérification de la couleur (si la couleur correspond, elle rapporte x2 de la mise)
       if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante)
       {
-        victoire = true;
-      }
-      if (!mise_placee)
-      {
-        victoire = false;
+        gains += (COUT_MISE * 2);
       }
 
-      if (victoire)
+      // Traitement des gains financiers et affichage
+      if (gains > 0)
       {
-        lv_label_set_text_fmt(label_statut, "GAGNE ! (Numero %d)", numero_gagnant);
+        solde += gains;
+        lv_label_set_text_fmt(label_statut, "GAGNE %d$! (Num %d)", gains, numero_gagnant);
         lv_obj_set_style_text_color(label_statut, lv_color_hex(0x00FF00), 0);
       }
       else
       {
-        lv_label_set_text_fmt(label_statut, "PERDU ! (Numero %d)", numero_gagnant);
+        lv_label_set_text_fmt(label_statut, "PERDU ! (Num %d)", numero_gagnant);
         lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
       }
+
+      lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
 
       lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
       depart_declenche = false;
