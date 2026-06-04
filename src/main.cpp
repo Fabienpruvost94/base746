@@ -388,7 +388,7 @@ void myTask(void *pvParameters)
     case JeuEnAttente:
       if (depart_declenche)
       {
-        // 1. Calcul du nombre de paris actifs
+        
         int nb_mises = nb_numeros_selectionnes + (couleur_selectionnee > 0 ? 1 : 0);
         
         if (nb_mises == 0)
@@ -400,7 +400,7 @@ void myTask(void *pvParameters)
           break;
         }
 
-        // 2. Calcul du cout total (chaque pari coute 5)
+        
         int cout_total = nb_mises * COUT_MISE;
 
         if (solde < cout_total)
@@ -412,7 +412,7 @@ void myTask(void *pvParameters)
           break;
         }
 
-        // 3. Déduction du montant total
+        
         solde -= cout_total;
         lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
 
@@ -482,26 +482,26 @@ void myTask(void *pvParameters)
 
       int gains = 0;
 
-      // Vérification des numéros (si un numéro correspond, il rapporte x2 de la mise)
+      
       if (nb_numeros_selectionnes > 0)
       {
         for (int i = 0; i < 5; i++)
         {
           if (numeros_selectionnes[i] == numero_gagnant)
           {
-            gains += (COUT_MISE * 2); 
+            gains += (COUT_MISE * 35); 
             break;
           }
         }
       }
 
-      // Vérification de la couleur (si la couleur correspond, elle rapporte x2 de la mise)
+      
       if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante)
       {
         gains += (COUT_MISE * 2);
       }
 
-      // Traitement des gains financiers et affichage
+      
       if (gains > 0)
       {
         solde += gains;
