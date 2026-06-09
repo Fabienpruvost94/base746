@@ -322,9 +322,9 @@ void initialiser_interface_LVGL()
   }
 
   bouton_rouge = lv_button_create(lv_screen_active());
-  lv_obj_set_size(bouton_rouge, 50, 80);
+  lv_obj_set_size(bouton_rouge, 50, 60);
   lv_obj_add_flag(bouton_rouge, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_align(bouton_rouge, LV_ALIGN_CENTER, 30, 50);
+  lv_obj_align(bouton_rouge, LV_ALIGN_CENTER, 30, 40);
   lv_obj_set_style_bg_color(bouton_rouge, lv_color_hex(0x006400), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_bg_color(bouton_rouge, lv_color_hex(0xFF0000), LV_PART_MAIN | LV_STATE_CHECKED);
   lv_obj_remove_style(bouton_rouge, NULL, LV_STATE_PRESSED);
@@ -334,9 +334,9 @@ void initialiser_interface_LVGL()
   lv_obj_center(labelrouge);
 
   bouton_noir = lv_button_create(lv_screen_active());
-  lv_obj_set_size(bouton_noir, 50, 80);
+  lv_obj_set_size(bouton_noir, 50, 60);
   lv_obj_add_flag(bouton_noir, LV_OBJ_FLAG_CHECKABLE);
-  lv_obj_align(bouton_noir, LV_ALIGN_CENTER, 30, -50);
+  lv_obj_align(bouton_noir, LV_ALIGN_CENTER, 30, -40);
   lv_obj_set_style_bg_color(bouton_noir, lv_color_hex(0x006400), LV_PART_MAIN | LV_STATE_DEFAULT);
   lv_obj_set_style_bg_color(bouton_noir, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_CHECKED);
   lv_obj_remove_style(bouton_noir, NULL, LV_STATE_PRESSED);
@@ -358,7 +358,7 @@ void initialiser_interface_LVGL()
   lv_obj_center(labelStart);
 
   token_5 = lv_button_create(lv_screen_active());
-  lv_obj_set_size(token_5, 44, 44);
+  lv_obj_set_size(token_5, 35, 35);
   lv_obj_set_style_radius(token_5, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_bg_color(token_5, lv_color_hex(0xFFD700), LV_PART_MAIN);
   lv_obj_set_style_border_color(token_5, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -366,14 +366,14 @@ void initialiser_interface_LVGL()
   lv_obj_remove_style(token_5, NULL, LV_STATE_PRESSED);
   lv_obj_set_user_data(token_5, (void *)(uintptr_t)5);
   lv_obj_add_event_cb(token_5, cb_token_mise, LV_EVENT_CLICKED, NULL);
-  lv_obj_align(token_5, LV_ALIGN_BOTTOM_LEFT, 140, -10);
+  lv_obj_align(token_5, LV_ALIGN_BOTTOM_LEFT, 330, -10);
   lv_obj_t *lbl_t5 = lv_label_create(token_5);
   lv_label_set_text(lbl_t5, "5");
-  lv_obj_set_style_text_color(lbl_t5, lv_color_hex(0x000000), 0);
+  lv_obj_set_style_text_color(lbl_t5, lv_color_hex(0xFFFFFF), 0);
   lv_obj_center(lbl_t5);
 
   token_10 = lv_button_create(lv_screen_active());
-  lv_obj_set_size(token_10, 44, 44);
+  lv_obj_set_size(token_10, 35, 35);
   lv_obj_set_style_radius(token_10, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_bg_color(token_10, lv_color_hex(0x555555), LV_PART_MAIN);
   lv_obj_set_style_border_color(token_10, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -381,14 +381,14 @@ void initialiser_interface_LVGL()
   lv_obj_remove_style(token_10, NULL, LV_STATE_PRESSED);
   lv_obj_set_user_data(token_10, (void *)(uintptr_t)10);
   lv_obj_add_event_cb(token_10, cb_token_mise, LV_EVENT_CLICKED, NULL);
-  lv_obj_align(token_10, LV_ALIGN_BOTTOM_LEFT, 88, -10);
+  lv_obj_align(token_10, LV_ALIGN_BOTTOM_LEFT, 285, -10);
   lv_obj_t *lbl_t10 = lv_label_create(token_10);
   lv_label_set_text(lbl_t10, "10");
   lv_obj_set_style_text_color(lbl_t10, lv_color_hex(0xFFFFFF), 0);
   lv_obj_center(lbl_t10);
 
   token_20 = lv_button_create(lv_screen_active());
-  lv_obj_set_size(token_20, 44, 44);
+  lv_obj_set_size(token_20, 35, 35);
   lv_obj_set_style_radius(token_20, LV_RADIUS_CIRCLE, 0);
   lv_obj_set_style_bg_color(token_20, lv_color_hex(0x555555), LV_PART_MAIN);
   lv_obj_set_style_border_color(token_20, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
@@ -396,7 +396,7 @@ void initialiser_interface_LVGL()
   lv_obj_remove_style(token_20, NULL, LV_STATE_PRESSED);
   lv_obj_set_user_data(token_20, (void *)(uintptr_t)20);
   lv_obj_add_event_cb(token_20, cb_token_mise, LV_EVENT_CLICKED, NULL);
-  lv_obj_align(token_20, LV_ALIGN_BOTTOM_LEFT, 36, -10);
+  lv_obj_align(token_20, LV_ALIGN_BOTTOM_LEFT, 240, -10);
   lv_obj_t *lbl_t20 = lv_label_create(token_20);
   lv_label_set_text(lbl_t20, "20");
   lv_obj_set_style_text_color(lbl_t20, lv_color_hex(0xFFFFFF), 0);
