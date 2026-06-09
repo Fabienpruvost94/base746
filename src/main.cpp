@@ -38,8 +38,12 @@ static float dernier_angle = 0.0f;
 static int compteur_stabilite = 0;
 static bool depart_declenche = false;
 
-static int solde = 100; 
-const int COUT_MISE = 5;
+static int solde = 100;
+static int mise_courante = 5;
+
+static lv_obj_t *token_5;
+static lv_obj_t *token_10;
+static lv_obj_t *token_20;
 
 static int numeros_selectionnes[5] = {0, 0, 0, 0, 0};
 static int nb_numeros_selectionnes = 0;
@@ -77,6 +81,26 @@ uint16_t lire_AS5047P()
   uint16_t reponse = transfert_SPI_logiciel(AS5047P_NOP);
   digitalWrite(AS5047P_CS, HIGH);
   return (reponse & 0x3FF0);
+}
+
+static void mettre_a_jour_tokens()
+{
+  lv_color_t couleur_active = lv_color_hex(0xFFD700);
+  lv_color_t couleur_inactive = lv_color_hex(0x555555);
+
+  lv_obj_set_style_bg_color(token_5, mise_courante == 5 ? couleur_active : couleur_inactive, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(token_10, mise_courante == 10 ? couleur_active : couleur_inactive, LV_PART_MAIN);
+  lv_obj_set_style_bg_color(token_20, mise_courante == 20 ? couleur_active : couleur_inactive, LV_PART_MAIN);
+}
+
+static void cb_token_mise(lv_event_t *e)
+{
+  lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
+  if (!btn)
+    return;
+
+  mise_courante = (int)(uintptr_t)lv_obj_get_user_data(btn);
+  mettre_a_jour_tokens();
 }
 
 static void cb_bouton_couleur(lv_event_t *e)
@@ -177,7 +201,7 @@ void initialiser_interface_LVGL()
 
   label_solde = lv_label_create(lv_screen_active());
   lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
-  lv_obj_set_style_text_color(label_solde, lv_color_hex(0xFFFF00), 0); 
+  lv_obj_set_style_text_color(label_solde, lv_color_hex(0xFFFF00), 0);
   lv_obj_align(label_solde, LV_ALIGN_BOTTOM_RIGHT, -20, -15);
 
   roulette = lv_arc_create(lv_screen_active());
@@ -294,6 +318,7 @@ void initialiser_interface_LVGL()
     lv_label_set_text_fmt(label, "%" LV_PRIu32, i);
     lv_obj_center(label);
     lv_obj_add_event_cb(btn, cb_bouton_numero, LV_EVENT_CLICKED, NULL);
+     
   }
 
   bouton_rouge = lv_button_create(lv_screen_active());
@@ -331,6 +356,51 @@ void initialiser_interface_LVGL()
   lv_obj_t *labelStart = lv_label_create(bouton_depart);
   lv_label_set_text(labelStart, "START");
   lv_obj_center(labelStart);
+
+  token_5 = lv_button_create(lv_screen_active());
+  lv_obj_set_size(token_5, 44, 44);
+  lv_obj_set_style_radius(token_5, LV_RADIUS_CIRCLE, 0);
+  lv_obj_set_style_bg_color(token_5, lv_color_hex(0xFFD700), LV_PART_MAIN);
+  lv_obj_set_style_border_color(token_5, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_set_style_border_width(token_5, 2, LV_PART_MAIN);
+  lv_obj_remove_style(token_5, NULL, LV_STATE_PRESSED);
+  lv_obj_set_user_data(token_5, (void *)(uintptr_t)5);
+  lv_obj_add_event_cb(token_5, cb_token_mise, LV_EVENT_CLICKED, NULL);
+  lv_obj_align(token_5, LV_ALIGN_BOTTOM_LEFT, 140, -10);
+  lv_obj_t *lbl_t5 = lv_label_create(token_5);
+  lv_label_set_text(lbl_t5, "5");
+  lv_obj_set_style_text_color(lbl_t5, lv_color_hex(0x000000), 0);
+  lv_obj_center(lbl_t5);
+
+  token_10 = lv_button_create(lv_screen_active());
+  lv_obj_set_size(token_10, 44, 44);
+  lv_obj_set_style_radius(token_10, LV_RADIUS_CIRCLE, 0);
+  lv_obj_set_style_bg_color(token_10, lv_color_hex(0x555555), LV_PART_MAIN);
+  lv_obj_set_style_border_color(token_10, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_set_style_border_width(token_10, 2, LV_PART_MAIN);
+  lv_obj_remove_style(token_10, NULL, LV_STATE_PRESSED);
+  lv_obj_set_user_data(token_10, (void *)(uintptr_t)10);
+  lv_obj_add_event_cb(token_10, cb_token_mise, LV_EVENT_CLICKED, NULL);
+  lv_obj_align(token_10, LV_ALIGN_BOTTOM_LEFT, 88, -10);
+  lv_obj_t *lbl_t10 = lv_label_create(token_10);
+  lv_label_set_text(lbl_t10, "10");
+  lv_obj_set_style_text_color(lbl_t10, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_center(lbl_t10);
+
+  token_20 = lv_button_create(lv_screen_active());
+  lv_obj_set_size(token_20, 44, 44);
+  lv_obj_set_style_radius(token_20, LV_RADIUS_CIRCLE, 0);
+  lv_obj_set_style_bg_color(token_20, lv_color_hex(0x555555), LV_PART_MAIN);
+  lv_obj_set_style_border_color(token_20, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+  lv_obj_set_style_border_width(token_20, 2, LV_PART_MAIN);
+  lv_obj_remove_style(token_20, NULL, LV_STATE_PRESSED);
+  lv_obj_set_user_data(token_20, (void *)(uintptr_t)20);
+  lv_obj_add_event_cb(token_20, cb_token_mise, LV_EVENT_CLICKED, NULL);
+  lv_obj_align(token_20, LV_ALIGN_BOTTOM_LEFT, 36, -10);
+  lv_obj_t *lbl_t20 = lv_label_create(token_20);
+  lv_label_set_text(lbl_t20, "20");
+  lv_obj_set_style_text_color(lbl_t20, lv_color_hex(0xFFFFFF), 0);
+  lv_obj_center(lbl_t20);
 }
 
 #ifdef ARDUINO
@@ -345,7 +415,6 @@ void mySetup()
   pinMode(AS5047P_MISO, INPUT);
   digitalWrite(AS5047P_CS, HIGH);
   digitalWrite(AS5047P_SCK, LOW);
-  lv_init();
   initialiser_interface_LVGL();
 }
 
@@ -369,18 +438,22 @@ void myTask(void *pvParameters)
     lv_value_precise_t nouv_x = (lv_value_precise_t)(90.0f + 70.0f * cosf(angle_radians));
     lv_value_precise_t nouv_y = (lv_value_precise_t)(90.0f + 70.0f * sinf(angle_radians));
 
-    lvglLock();
-
     if (roulette)
+    {
+      lvglLock();
       lv_arc_set_value(roulette, angle_entier);
-
+      lvglUnlock();
+    }
     if (aiguille)
     {
+      lvglLock();
       points_aiguille[0].x = (lv_value_precise_t)90;
       points_aiguille[0].y = (lv_value_precise_t)90;
       points_aiguille[1].x = nouv_x;
       points_aiguille[1].y = nouv_y;
+
       lv_line_set_points_mutable(aiguille, points_aiguille, 2);
+      lvglUnlock();
     }
 
     switch (etat_actuel)
@@ -388,9 +461,8 @@ void myTask(void *pvParameters)
     case JeuEnAttente:
       if (depart_declenche)
       {
-        
         int nb_mises = nb_numeros_selectionnes + (couleur_selectionnee > 0 ? 1 : 0);
-        
+
         if (nb_mises == 0)
         {
           lv_label_set_text(label_statut, "Misez d'abord !");
@@ -400,8 +472,7 @@ void myTask(void *pvParameters)
           break;
         }
 
-        
-        int cout_total = nb_mises * COUT_MISE;
+        int cout_total = nb_mises * mise_courante;
 
         if (solde < cout_total)
         {
@@ -412,7 +483,6 @@ void myTask(void *pvParameters)
           break;
         }
 
-        
         solde -= cout_total;
         lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
 
@@ -461,7 +531,7 @@ void myTask(void *pvParameters)
         compteur_stabilite = 0;
       }
 
-       dernier_angle = angle_degres;
+      dernier_angle = angle_degres;
 
       if (compteur_stabilite >= 10)
       {
@@ -482,26 +552,23 @@ void myTask(void *pvParameters)
 
       int gains = 0;
 
-      
       if (nb_numeros_selectionnes > 0)
       {
         for (int i = 0; i < 5; i++)
         {
           if (numeros_selectionnes[i] == numero_gagnant)
           {
-            gains += (COUT_MISE * 35); 
+            gains += (mise_courante * 35);
             break;
           }
         }
       }
 
-      
       if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante)
       {
-        gains += (COUT_MISE * 2);
+        gains += (mise_courante * 2);
       }
 
-      
       if (gains > 0)
       {
         solde += gains;
@@ -523,9 +590,7 @@ void myTask(void *pvParameters)
     break;
     }
 
-    lvglUnlock();
-
-    vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(50));
+    vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(100));
   }
 }
 

@@ -46,9 +46,6 @@ static void my_flush_cb(lv_display_t *display, const lv_area_t *area, uint8_t *p
             buf++;
         }
     }
-
-    // IMPORTANT!!!
-    // Inform LVGL that you are ready with the flushing and buf is not used anymore
     lv_display_flush_ready(display);
 }
 
@@ -74,38 +71,40 @@ void setup()
     Serial.begin(115200);
     Serial.println("Start");
 
+    Serial.println(">>> BSP_LCD_Init...");
     BSP_LCD_Init();
+    Serial.println(">>> BSP_LCD_LayerDefaultInit...");
     BSP_LCD_LayerDefaultInit(0, LCD_FB_START_ADDRESS);
-
+    Serial.println(">>> BSP_TS_Init...");
     BSP_TS_Init(480, 272);
-
+    Serial.println(">>> xSemaphoreCreateMutex...");
     lvglMutex = xSemaphoreCreateMutex();
-
+    Serial.println(">>> lv_init...");
     lv_init();
-
+    Serial.println(">>> lv_log_register...");
     lv_log_register_print_cb([](lv_log_level_t level, const char *buf) {
         Serial.printf("%s", buf);
     });
-
+    Serial.println(">>> lv_display_create...");
     lv_display_t *display = lv_display_create(480, 272);
-
+    Serial.println(">>> lv_display_set_flush_cb...");
     lv_display_set_flush_cb(display, my_flush_cb);
-
+    Serial.println(">>> lv_display_set_buffers...");
     static uint32_t buf[480 * 272 / 10];
-
     lv_display_set_buffers(display, buf, NULL, sizeof(buf), LV_DISPLAY_RENDER_MODE_PARTIAL);
-
+    Serial.println(">>> lv_indev_create...");
     lv_indev_t *indev = lv_indev_create();
     lv_indev_set_type(indev, LV_INDEV_TYPE_POINTER);
     lv_indev_set_read_cb(indev, my_read_cb);
-
+    Serial.println(">>> lv_tick_set_cb...");
     lv_tick_set_cb(xTaskGetTickCount);
-
+    Serial.println(">>> mySetup...");
     mySetup();
-
-    xTaskCreate(lvglTask, NULL, 16384, NULL, osPriorityNormal, NULL);
-    xTaskCreate(myTask, NULL, 16384, NULL, osPriorityNormal, NULL);
-
+    Serial.println(">>> xTaskCreate lvglTask...");
+    xTaskCreate(lvglTask, NULL, 2048, NULL, osPriorityNormal, NULL);
+    Serial.println(">>> xTaskCreate myTask...");
+    xTaskCreate(myTask, NULL, 1024, NULL, osPriorityNormal, NULL);
+    Serial.println(">>> vTaskStartScheduler...");
     vTaskStartScheduler();
     Serial.println("Insufficient RAM");
     while (1);
