@@ -101,7 +101,7 @@ void setup()
     Serial.println(">>> mySetup...");
     mySetup();
     Serial.println(">>> xTaskCreate lvglTask...");
-    xTaskCreate(lvglTask, NULL, 2048, NULL, osPriorityNormal, NULL);
+    xTaskCreate(lvglTask, NULL, 1024, NULL, osPriorityNormal, NULL);
     Serial.println(">>> xTaskCreate myTask...");
     xTaskCreate(myTask, NULL, 1024, NULL, osPriorityNormal, NULL);
     Serial.println(">>> vTaskStartScheduler...");

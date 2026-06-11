@@ -261,7 +261,7 @@ void initialiser_interface_LVGL()
     lv_label_set_text_fmt(lbl, "%d", numero);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_center(lbl);
-
+/*
     points_segments[i][0].x = (lv_value_precise_t)(centre_x + 75.0f * cosf(angle_depart_rad));
     points_segments[i][0].y = (lv_value_precise_t)(centre_y + 75.0f * sinf(angle_depart_rad));
     points_segments[i][1].x = (lv_value_precise_t)(centre_x + 91.0f * cosf(angle_depart_rad));
@@ -272,7 +272,7 @@ void initialiser_interface_LVGL()
     lv_obj_set_style_line_width(segments[i], 1, LV_PART_MAIN);
     lv_obj_set_size(segments[i], 190, 190);
     lv_obj_align(segments[i], LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_line_set_points_mutable(segments[i], points_segments[i], 2);
+    lv_line_set_points_mutable(segments[i], points_segments[i], 2);*/
   }
 
   aiguille = lv_line_create(lv_screen_active());
@@ -590,7 +590,7 @@ void myTask(void *pvParameters)
     break;
     }
 
-    vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(100));
+    vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(75));
   }
 }
 
