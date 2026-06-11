@@ -3,12 +3,18 @@
 #include <math.h>
 #include "lvglDrivers.h"
 
+
+LV_IMAGE_DECLARE(fleche);
+
 #define AS5047P_CS 9
 #define AS5047P_MOSI 7
 #define AS5047P_MISO 8
 #define AS5047P_SCK 6
 #define AS5047P_NOP 0x0000
 #define AS5047P_ANGLECOM 0x3FFE
+
+
+static const int32_t OFFSET_ANGLE = 3600;
 
 enum EtatJeu
 {
@@ -24,7 +30,6 @@ static lv_obj_t *bouton_rouge;
 static lv_obj_t *bouton_noir;
 static lv_obj_t *aiguille;
 static lv_display_t *ecran;
-static lv_point_precise_t points_aiguille[2];
 static lv_obj_t *cont_boutons;
 static lv_obj_t *bouton_depart;
 static lv_obj_t *cont_cercle;
@@ -231,7 +236,6 @@ void initialiser_interface_LVGL()
 
     float angle_milieu_deg = i * 10.0f + 5.0f;
     float angle_milieu_rad = angle_milieu_deg * (M_PI / 180.0f);
-    float angle_depart_rad = (i * 10.0f) * (M_PI / 180.0f);
 
     float rayon_x = centre_x + 83.0f * cosf(angle_milieu_rad);
     float rayon_y = centre_y + 83.0f * sinf(angle_milieu_rad);
@@ -261,32 +265,20 @@ void initialiser_interface_LVGL()
     lv_label_set_text_fmt(lbl, "%d", numero);
     lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
     lv_obj_center(lbl);
-/*
-    points_segments[i][0].x = (lv_value_precise_t)(centre_x + 75.0f * cosf(angle_depart_rad));
-    points_segments[i][0].y = (lv_value_precise_t)(centre_y + 75.0f * sinf(angle_depart_rad));
-    points_segments[i][1].x = (lv_value_precise_t)(centre_x + 91.0f * cosf(angle_depart_rad));
-    points_segments[i][1].y = (lv_value_precise_t)(centre_y + 91.0f * sinf(angle_depart_rad));
-
-    segments[i] = lv_line_create(cont_cercle);
-    lv_obj_set_style_line_color(segments[i], lv_color_hex(0xFFFFFF), LV_PART_MAIN);
-    lv_obj_set_style_line_width(segments[i], 1, LV_PART_MAIN);
-    lv_obj_set_size(segments[i], 190, 190);
-    lv_obj_align(segments[i], LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_line_set_points_mutable(segments[i], points_segments[i], 2);*/
   }
 
-  aiguille = lv_line_create(lv_screen_active());
-  lv_obj_set_style_line_color(aiguille, lv_color_hex(0x000000), LV_PART_MAIN);
-  lv_obj_set_style_line_width(aiguille, 4, LV_PART_MAIN);
-  lv_obj_set_style_line_rounded(aiguille, false, LV_PART_MAIN);
-  lv_obj_set_size(aiguille, 180, 180);
+ 
+  aiguille = lv_image_create(lv_screen_active());
+  lv_image_set_src(aiguille, &fleche);
+
+  
+  lv_image_set_pivot(aiguille, 30, 20);
+
+  
   lv_obj_align(aiguille, LV_ALIGN_CENTER, -130, 0);
 
-  points_aiguille[0].x = (lv_value_precise_t)90;
-  points_aiguille[0].y = (lv_value_precise_t)90;
-  points_aiguille[1].x = (lv_value_precise_t)90;
-  points_aiguille[1].y = (lv_value_precise_t)20;
-  lv_line_set_points_mutable(aiguille, points_aiguille, 2);
+  lv_image_set_scale(aiguille, 512);
+  lv_image_set_rotation(aiguille, OFFSET_ANGLE);
 
   cont_boutons = lv_obj_create(lv_screen_active());
   lv_obj_set_size(cont_boutons, 180, 150);
@@ -318,7 +310,6 @@ void initialiser_interface_LVGL()
     lv_label_set_text_fmt(label, "%" LV_PRIu32, i);
     lv_obj_center(label);
     lv_obj_add_event_cb(btn, cb_bouton_numero, LV_EVENT_CLICKED, NULL);
-     
   }
 
   bouton_rouge = lv_button_create(lv_screen_active());
@@ -434,25 +425,19 @@ void myTask(void *pvParameters)
 
     int angle_entier = (int)angle_degres;
 
-    float angle_radians = angle_degres * (M_PI / 180.0f);
-    lv_value_precise_t nouv_x = (lv_value_precise_t)(90.0f + 70.0f * cosf(angle_radians));
-    lv_value_precise_t nouv_y = (lv_value_precise_t)(90.0f + 70.0f * sinf(angle_radians));
-
     if (roulette)
     {
       lvglLock();
       lv_arc_set_value(roulette, angle_entier);
       lvglUnlock();
     }
+
     if (aiguille)
     {
       lvglLock();
-      points_aiguille[0].x = (lv_value_precise_t)90;
-      points_aiguille[0].y = (lv_value_precise_t)90;
-      points_aiguille[1].x = nouv_x;
-      points_aiguille[1].y = nouv_y;
-
-      lv_line_set_points_mutable(aiguille, points_aiguille, 2);
+      int32_t angle_lvgl = (int32_t)(angle_degres * 10.0f) + OFFSET_ANGLE;
+      angle_lvgl = ((angle_lvgl % 3600) + 3600) % 3600;
+      lv_image_set_rotation(aiguille, angle_lvgl);
       lvglUnlock();
     }
 
@@ -465,9 +450,11 @@ void myTask(void *pvParameters)
 
         if (nb_mises == 0)
         {
+          lvglLock();
           lv_label_set_text(label_statut, "Misez d'abord !");
           lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
           lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+          lvglUnlock();
           depart_declenche = false;
           break;
         }
@@ -476,22 +463,28 @@ void myTask(void *pvParameters)
 
         if (solde < cout_total)
         {
+          lvglLock();
           lv_label_set_text(label_statut, "Solde insuffisant !");
           lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
           lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+          lvglUnlock();
           depart_declenche = false;
           break;
         }
 
         solde -= cout_total;
+        lvglLock();
         lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
+        lvglUnlock();
 
         angle_initial = angle_degres;
         dernier_angle = angle_degres;
         compteur_stabilite = 0;
         etat_actuel = JeuAttenteMouvement;
+        lvglLock();
         lv_label_set_text(label_statut, "Lancez la roulette !");
         lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFFFFFF), 0);
+        lvglUnlock();
       }
       break;
 
@@ -499,7 +492,9 @@ void myTask(void *pvParameters)
       if (!depart_declenche)
       {
         etat_actuel = JeuEnAttente;
+        lvglLock();
         lv_label_set_text(label_statut, "Pret");
+        lvglUnlock();
         break;
       }
       {
@@ -511,7 +506,9 @@ void myTask(void *pvParameters)
           etat_actuel = JeuEnRotation;
           dernier_angle = angle_degres;
           compteur_stabilite = 0;
+          lvglLock();
           lv_label_set_text(label_statut, "En mouvement...");
+          lvglUnlock();
         }
       }
       break;
@@ -569,6 +566,7 @@ void myTask(void *pvParameters)
         gains += (mise_courante * 2);
       }
 
+      lvglLock();
       if (gains > 0)
       {
         solde += gains;
@@ -582,8 +580,9 @@ void myTask(void *pvParameters)
       }
 
       lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
-
       lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+      lvglUnlock();
+
       depart_declenche = false;
       etat_actuel = JeuEnAttente;
     }
