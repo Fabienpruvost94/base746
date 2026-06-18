@@ -12,7 +12,7 @@ LV_IMAGE_DECLARE(fleche);
 #define AS5047P_NOP 0x0000
 #define AS5047P_ANGLECOM 0x3FFE
 
-static const int32_t OFFSET_ANGLE = 3600;
+static const int32_t OFFSET_ANGLE = 3600; 
 
 enum EtatJeu
 {
@@ -52,9 +52,7 @@ static lv_obj_t *token_20;
 static int numeros_selectionnes[5] = {0, 0, 0, 0, 0};
 static int nb_numeros_selectionnes = 0;
 
-static lv_point_precise_t points_segments[36][2];
-static lv_obj_t *segments[36];
-
+// -------------------------------Permet d'utiliser le SPI--------------------------------------
 uint16_t transfert_SPI_logiciel(uint16_t valeur)
 {
   uint16_t sortie = 0;
@@ -72,6 +70,7 @@ uint16_t transfert_SPI_logiciel(uint16_t valeur)
   return sortie;
 }
 
+// -------------------------------recupere la valeur brute de l'angle--------------------------------------
 uint16_t lire_AS5047P()
 {
   uint16_t commande = 0x4000 | AS5047P_ANGLECOM;
@@ -87,14 +86,14 @@ uint16_t lire_AS5047P()
   return (reponse & 0x3FF0);
 }
 
-
-
+// -------------------------------Calcul la somme miser--------------------------------------
 int calculer_cout_total()
 {
   int nb_mises = nb_numeros_selectionnes + (couleur_selectionnee > 0 ? 1 : 0);
   return nb_mises * mise_courante;
 }
 
+// -------------------------------afficher la somme miser--------------------------------------
 void mettre_a_jour_solde_projete()
 {
   int cout = calculer_cout_total();
@@ -109,18 +108,16 @@ void mettre_a_jour_solde_projete()
   }
 }
 
+// -------------------------------enlever les mises apres avoir fait un tour de roulette --------------------------------------
 void reinitialiser_mises()
 {
-  
   for (int i = 0; i < 5; i++) numeros_selectionnes[i] = 0;
   nb_numeros_selectionnes = 0;
   couleur_selectionnee = 0;
 
-  
   lv_obj_clear_state(bouton_rouge, LV_STATE_CHECKED);
   lv_obj_clear_state(bouton_noir, LV_STATE_CHECKED);
 
-  
   uint32_t child_cnt = lv_obj_get_child_count(cont_boutons);
   for (uint32_t i = 0; i < child_cnt; i++) {
     lv_obj_t * child = lv_obj_get_child(cont_boutons, i);
@@ -130,8 +127,7 @@ void reinitialiser_mises()
   mettre_a_jour_solde_projete();
 }
 
-
-
+// -------------------------------modifier la couleur de la mise sélectionnés--------------------------------------
 static void mettre_a_jour_tokens()
 {
   lv_color_t couleur_active = lv_color_hex(0xFFD700);
@@ -149,9 +145,10 @@ static void cb_token_mise(lv_event_t *e)
 
   mise_courante = (int)(uintptr_t)lv_obj_get_user_data(btn);
   mettre_a_jour_tokens();
-  mettre_a_jour_solde_projete(); // MAJ du stock
+  mettre_a_jour_solde_projete(); 
 }
 
+// -------------------------------permet de miser sur une seule couleur et pas les deux--------------------------------------
 static void cb_bouton_couleur(lv_event_t *e)
 {
   lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
@@ -186,6 +183,7 @@ static void cb_bouton_couleur(lv_event_t *e)
   mettre_a_jour_solde_projete(); 
 }
 
+// -------------------------------permet de savoir le nombre de numero de mise selctionnés--------------------------------------
 static void cb_bouton_numero(lv_event_t *e)
 {
   lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
@@ -229,6 +227,7 @@ static void cb_bouton_numero(lv_event_t *e)
   mettre_a_jour_solde_projete(); 
 }
 
+// -------------------------------etat du bouton start-------------------------------------
 static void cb_bouton_depart(lv_event_t *e)
 {
   lv_obj_t *btn = (lv_obj_t *)lv_event_get_current_target(e);
@@ -243,7 +242,7 @@ void initialiser_interface_LVGL()
   lv_obj_set_style_bg_opa(lv_screen_active(), LV_OPA_COVER, LV_PART_MAIN);
 
   label_statut = lv_label_create(lv_screen_active());
-  lv_label_set_text(label_statut, "Pret");
+  lv_label_set_text(label_statut, "Appuyer sur Start");
   lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFFFFFF), 0);
   lv_obj_align(label_statut, LV_ALIGN_TOP_MID, -20, 15);
 
@@ -252,7 +251,6 @@ void initialiser_interface_LVGL()
   lv_obj_set_style_text_color(label_solde, lv_color_hex(0xFFFF00), 0);
   lv_obj_align(label_solde, LV_ALIGN_BOTTOM_RIGHT, -20, -15);
 
-  
   label_solde_projete = lv_label_create(lv_screen_active());
   lv_label_set_text_fmt(label_solde_projete, "Apres mise: %d$", solde);
   lv_obj_set_style_text_color(label_solde_projete, lv_color_hex(0xAAAAAA), 0);
@@ -278,7 +276,8 @@ void initialiser_interface_LVGL()
   lv_obj_clear_flag(cont_cercle, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
   float centre_x = 95.0f, centre_y = 95.0f;
-
+  
+  // -------------------------------genère les 36 boutons de mises--------------------------------------
   for (int i = 0; i < 36; i++)
   {
     int numero = i + 1;
@@ -437,7 +436,6 @@ void initialiser_interface_LVGL()
 }
 
 #ifdef ARDUINO
-
 void mySetup()
 {
   Serial.begin(115200);
@@ -451,9 +449,7 @@ void mySetup()
   initialiser_interface_LVGL();
 }
 
-void loop()
-{
-}
+void loop() {}
 
 void myTask(void *pvParameters)
 {
@@ -462,11 +458,12 @@ void myTask(void *pvParameters)
 
   while (1)
   {
+    // -------------------------------recupere et convertit l'angle--------------------------------------
     uint16_t valeur_angle = lire_AS5047P();
     float angle_degres = (valeur_angle * 360.0f) / 16384.0f;
-
     int angle_entier = (int)angle_degres;
 
+    // -------------------------------mise a jour graphique de la roulette--------------------------------------
     if (roulette)
     {
       lvglLock();
@@ -474,6 +471,7 @@ void myTask(void *pvParameters)
       lvglUnlock();
     }
 
+    // -------------------------------mise a jour de la position de l'aiguille--------------------------------------
     if (aiguille)
     {
       lvglLock();
@@ -483,6 +481,7 @@ void myTask(void *pvParameters)
       lvglUnlock();
     }
 
+    // -------------------------------gestion de la machine a etats du jeu--------------------------------------
     switch (etat_actuel)
     {
     case JeuEnAttente:
@@ -490,6 +489,7 @@ void myTask(void *pvParameters)
       {
         int cout_total = calculer_cout_total();
 
+        // -------------------------------verification des mises et du solde--------------------------------------
         if (cout_total == 0)
         {
           lvglLock();
@@ -512,6 +512,7 @@ void myTask(void *pvParameters)
           break;
         }
 
+        // -------------------------------debut de la partie--------------------------------------
         solde -= cout_total;
         
         lvglLock();
@@ -531,6 +532,7 @@ void myTask(void *pvParameters)
       break;
 
     case JeuAttenteMouvement:
+      // -------------------------------detection du debut de rotation--------------------------------------
       if (!depart_declenche)
       {
         etat_actuel = JeuEnAttente;
@@ -556,93 +558,83 @@ void myTask(void *pvParameters)
       break;
 
     case JeuEnRotation:
-    {
-      float diff_dernier = fabs(angle_degres - dernier_angle);
-      if (diff_dernier > 180.0f)
-        diff_dernier = 360.0f - diff_dernier;
-
-      if (diff_dernier < 0.5f)
+      // -------------------------------calcul de la stabilite pour detecter l'arret--------------------------------------
       {
-        compteur_stabilite++;
-      }
-      else
-      {
-        compteur_stabilite = 0;
-      }
+        float diff_dernier = fabs(angle_degres - dernier_angle);
+        if (diff_dernier > 180.0f)
+          diff_dernier = 360.0f - diff_dernier;
 
-      dernier_angle = angle_degres;
-
-      if (compteur_stabilite >= 10)
-      {
-        etat_actuel = JeuEvaluation;
-      }
-    }
-    break;
-
-    case JeuEvaluation:
-    {
-      int secteur = (int)(angle_degres / 10.0f);
-      if (secteur < 0) secteur = 0;
-      if (secteur > 35) secteur = 35;
-      
-      int numero_gagnant = secteur + 1;
-      int couleur_gagnante = (numero_gagnant % 2 == 0) ? 1 : 2;
-
-      int gains = 0;
-
-      if (nb_numeros_selectionnes > 0)
-      {
-        for (int i = 0; i < 5; i++)
+        if (diff_dernier < 0.5f)
         {
-          if (numeros_selectionnes[i] == numero_gagnant)
-          {
-            gains += (mise_courante * 35);
-            break;
-          }
+          compteur_stabilite++;
+        }
+        else
+        {
+          compteur_stabilite = 0;
+        }
+        dernier_angle = angle_degres;
+
+        if (compteur_stabilite >= 10)
+        {
+          etat_actuel = JeuEvaluation;
         }
       }
+      break;
 
-      if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante)
+    case JeuEvaluation:
+      // -------------------------------calcul des gains et resultat final--------------------------------------
       {
-        gains += (mise_courante * 2);
-      }
+        int secteur = (int)(angle_degres / 10.0f);
+        if (secteur < 0) secteur = 0;
+        if (secteur > 35) secteur = 35;
+        
+        int numero_gagnant = secteur + 1;
+        int couleur_gagnante = (numero_gagnant % 2 == 0) ? 1 : 2;
+        int gains = 0;
 
-      lvglLock();
-      if (gains > 0)
-      {
-        solde += gains;
-        lv_label_set_text_fmt(label_statut, "GAGNE %d$! (Num %d)", gains, numero_gagnant);
-        lv_obj_set_style_text_color(label_statut, lv_color_hex(0x00FF00), 0);
-      }
-      else
-      {
-        lv_label_set_text_fmt(label_statut, "PERDU ! (Num %d)", numero_gagnant);
-        lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
-      }
+        if (nb_numeros_selectionnes > 0)
+        {
+          for (int i = 0; i < 5; i++)
+          {
+            if (numeros_selectionnes[i] == numero_gagnant)
+            {
+              gains += (mise_courante * 35);
+              break;
+            }
+          }
+        }
 
-      lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
-      lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
-      
-    
-      reinitialiser_mises();
-      
-      lvglUnlock();
+        if (couleur_selectionnee > 0 && couleur_selectionnee == couleur_gagnante)
+        {
+          gains += (mise_courante * 2);
+        }
 
-      depart_declenche = false;
-      etat_actuel = JeuEnAttente;
+        lvglLock();
+        if (gains > 0)
+        {
+          solde += gains;
+          lv_label_set_text_fmt(label_statut, "GAGNE %d$! (Num %d)", gains, numero_gagnant);
+          lv_obj_set_style_text_color(label_statut, lv_color_hex(0x00FF00), 0);
+        }
+        else
+        {
+          lv_label_set_text_fmt(label_statut, "PERDU ! (Num %d)", numero_gagnant);
+          lv_obj_set_style_text_color(label_statut, lv_color_hex(0xFF0000), 0);
+        }
+
+        lv_label_set_text_fmt(label_solde, "Solde: %d$", solde);
+        lv_obj_clear_state(bouton_depart, LV_STATE_CHECKED);
+        reinitialiser_mises();
+        lvglUnlock();
+
+        depart_declenche = false;
+        etat_actuel = JeuEnAttente;
+      }
+      break;
     }
-    break;
-    }
-
     vTaskDelayUntil(&temps_dernier_reveil, pdMS_TO_TICKS(75));
   }
 }
-
 #else
-
-int main(void)
-{
-  return 0;
-}
-
+int main(void) { return 0; }
 #endif
